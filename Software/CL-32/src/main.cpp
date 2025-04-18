@@ -58,6 +58,16 @@ int lineLength;
 //does the file have windows style carrage return and line feed?
 bool bCRLF;
 
+// Status message for UI feedback
+char statusMsg[64] = "";
+unsigned long statusMsgTime = 0;
+
+// Function prototypes for file management
+void saveFile();
+void newFile();
+void showSettings();
+void getLines(); // Prototype for getLines used in newFile()
+
 struct FolderData {
     FolderData *parent;
     byte layer;
@@ -108,13 +118,59 @@ struct tm CL32time;
 
 //high res 2.9
 #include "bitmaps/Bitmaps168x384.h" // 2.9"  b/w
+
+SPIClass hspi(HSPI);
+
+// --- FILE MANAGEMENT FUNCTIONS ---
+// Save file to SD card
+// hspi is now declared globally above
+void saveFile() {
+    File curFile;
+    char fullFileName[200];
+    sprintf(fullFileName, "%s/%s", filePath, fileName);
+    if (SD.begin(CL32_sd_cs, hspi)) {
+        curFile = SD.open(fullFileName, FILE_WRITE);
+        if (curFile) {
+            curFile.seek(0);
+            curFile.write((uint8_t*)fileBuffer, fileSize);
+            // curFile.truncate(fileSize); // Not available in ESP32 SD library
+            curFile.close();
+            sprintf(statusMsg, "Saved: %s", fileName);
+        } else {
+            sprintf(statusMsg, "Save failed!");
+        }
+    } else {
+        sprintf(statusMsg, "SD Card Fail");
+    }
+    SD.end();
+    SPI_SD.end();
+    statusMsgTime = millis();
+}
+
+// Start a new file (clear buffer and prompt for filename)
+// getLines is now declared above
+void newFile() {
+    memset(fileBuffer, 0, sizeof(fileBuffer));
+    fileSize = 0;
+    strcpy(fileName, "newfile.txt");
+    strcpy(filePath, "/");
+    windowX = windowY = iRow = iCol = 0;
+    getLines();
+    sprintf(statusMsg, "New file started");
+    statusMsgTime = millis();
+}
+
+// Placeholder for settings
+void showSettings() {
+    sprintf(statusMsg, "Settings (not implemented)");
+    statusMsgTime = millis();
+}
 GxEPD2_BW<GxEPD2_290_GDEY029T71H, GxEPD2_290_GDEY029T71H::HEIGHT> display(GxEPD2_290_GDEY029T71H(/*CS=D8*/ CL32_epd_cs, /*DC=D3*/ CL32_dc, /*RST=D4*/ CL32_rst, /*BUSY=D2*/ CL32_bsy)); // GDEY029T71H 168x384, SSD1685, (FPC-H004 22.03.24)
 
 //Low res 2.9
 //#include "bitmaps/Bitmaps128x296.h" // 2.9"  b/w
 //GxEPD2_BW<GxEPD2_290_GDEY029T94, GxEPD2_290_GDEY029T94::HEIGHT> display(GxEPD2_290_GDEY029T94(/*CS=D8*/ CL32_epd_cs, /*DC=D3*/ CL32_dc, /*RST=D4*/ CL32_rst, /*BUSY=D2*/ CL32_bsy)); // GDEY029T94  128x296, SSD1680, (FPC-A005 20.06.15)
 
-SPIClass hspi(HSPI);
 
 void getTime(){
 
@@ -487,6 +543,13 @@ void drawScreen(bool bFull) {
     else{
       display.print(sMenu[iMode-1]);
     }
+    // Show status message if present
+    if (strlen(statusMsg) > 0 && millis() - statusMsgTime < 2000) {
+      display.setCursor(10, display.height() - 20);
+      display.setFont(&FreeMono9pt7b);
+      display.print(statusMsg);
+    }
+
     display.setCursor((display.width()/2)-21,10);
     char sTemp[32];
     getTime();
@@ -763,8 +826,27 @@ void readKeys() {
               iRow = 0;
               iFiles = 0;
               iFolders = 0;
+              // Immediately perform the action for the selected mode
+              if (iMode==FILE){
+                // No action needed on menu exit for FILE mode
+              }
+              else if(iMode==EDIT){
+                // No action needed on menu exit for EDIT mode
+              }
+              else if(iMode==SAVE){
+                saveFile();
+                iMode = EDIT;
+              }
+              else if(iMode==NEW){
+                newFile();
+                iMode = EDIT;
+              }
+              else if(iMode==SET){
+                showSettings();
+                iMode = EDIT;
+              }
             } 
-            else{
+            else {
               if (iMode==FILE){
                 if(iCol%2==0){
                   iCol = 1;
@@ -781,6 +863,18 @@ void readKeys() {
                 if(bCRLF){
                   putChar(13,codeLines[iRow][iCol].pos);
                 }
+              }
+              else if(iMode==SAVE){
+                saveFile();
+                iMode = EDIT;
+              }
+              else if(iMode==NEW){
+                newFile();
+                iMode = EDIT;
+              }
+              else if(iMode==SET){
+                showSettings();
+                iMode = EDIT;
               }
             }
           }
