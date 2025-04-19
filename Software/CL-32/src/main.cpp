@@ -842,8 +842,13 @@ void readKeys() {
                 iMode = EDIT;
               }
               else if(iMode==SET){
-                showSettings();
+                sprintf(statusMsg, "Settings (not implemented)");
+                statusMsgTime = millis();
+                drawScreen(true); // Force display update
+                delay(1000); // Show message for 1 second
+                statusMsg[0] = '\0'; // Hide the message
                 iMode = EDIT;
+                bMenu = true; // Return to menu after showing settings
               }
             } 
             else {
@@ -873,8 +878,13 @@ void readKeys() {
                 iMode = EDIT;
               }
               else if(iMode==SET){
-                showSettings();
+                sprintf(statusMsg, "Settings (not implemented)");
+                statusMsgTime = millis();
+                drawScreen(true); // Force display update
+                delay(1000); // Show message for 1 second
+                statusMsg[0] = '\0'; // Hide the message
                 iMode = EDIT;
+                bMenu = true; // Return to menu after showing settings
               }
             }
           }
